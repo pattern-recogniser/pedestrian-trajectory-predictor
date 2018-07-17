@@ -4,10 +4,10 @@ import os
 import shutil
 import tarfile
 import matplotlib
-import matplotlib.pyplot as plt
-# import keras as keras
 
-PROJECT_PATH = '/Users/anjalikarimpil/Google Drive/Dissertation'
+
+# PROJECT_PATH = '/Users/anjalikarimpil/Google Drive/Dissertation'
+PROJECT_PATH = '/users/mscdsa2018/ask2/Projects'
 
 # # TODO: Create folder structure in College System as the one here 
 # datafile_path = '/Users/anjalikarimpil/Google Drive/Dissertation/Data/Social LSTM/'
@@ -64,3 +64,29 @@ def read_files(file_count=1):
 			print(data_file_name)
 			problem_files.append(data_file_name)
 	return df_list, problem_files
+
+def process_files(df_list):
+	'''
+	Given a list of data frames, parsees it by splitting datetime field to 
+	date and time,
+	'''
+	THRESHOLD = pd.to_timedelta('00:20:00.00000')
+	INPUT_SEQ_LENGTH = 20
+	for df in df_list:
+		df['date'], df['time'] = df[0].str.split('T', 1).str
+		df[0] = pd.to_datetime(df[0], format="%Y-%m-%dT%H:%M:%S:%f") 
+		df.columns = ['datetime', 'place', 'x_pos', 'y_pos', 'person_id', 'date', 'time']
+
+		df.sort_values(['person_id','datetime'], inplace=True, ascending=True)
+		df['time_lead'] = df.groupby(['person_id', 'date'])['datetime'].shift(-1)
+		df['target_x'] = df.groupby(['person_id', 'date'])['x_pos'].shift(-1)
+		df['target_y'] = df.groupby(['person_id', 'date'])['y_pos'].shift(-1)
+		df['fl'] = np.where(abs(df['time_lead'] - df['datetime']) > THRESHOLD, 1, 0)
+		df['traj_id'] = df['fl'].cumsum()
+
+		data = df[['traj_id','x_pos','y_pos']]
+		for i in range(1, INPUT_SEQ_LENGTH + 1):
+		    data['x_'+str(i)] = data.groupby(['traj_id'])['x_pos'].shift(-i)
+		    data['y_'+str(i)] = data.groupby(['traj_id'])['x_pos'].shift(-i)
+		# Remove NAs 
+		data = data.dropna()
