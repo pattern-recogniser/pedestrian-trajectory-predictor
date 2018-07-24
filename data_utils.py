@@ -4,11 +4,11 @@ import os
 import shutil
 import tarfile
 import matplotlib
-
+from sklearn.model_selection import train_test_split
 
 # PROJECT_PATH = '/Users/anjalikarimpil/Google Drive/Dissertation'
 PROJECT_PATH = '/users/mscdsa2018/ask2/Projects'
-
+INPUT_SEQ_LENGTH = 5
 # # TODO: Create folder structure in College System as the one here 
 # datafile_path = '/Users/anjalikarimpil/Google Drive/Dissertation/Data/Social LSTM/'
 # # datafile_path = '/users/mscdsa2018/ask2/Projects/Datasets/Social LSTM'
@@ -70,8 +70,8 @@ def process_files(df_list):
 	Given a list of data frames, parsees it by splitting datetime field to 
 	date and time,
 	'''
+	processed_df_list = []
 	THRESHOLD = pd.to_timedelta('00:20:00.00000')
-	INPUT_SEQ_LENGTH = 20
 	for df in df_list:
 		df['date'], df['time'] = df[0].str.split('T', 1).str
 		df[0] = pd.to_datetime(df[0], format="%Y-%m-%dT%H:%M:%S:%f") 
@@ -85,8 +85,53 @@ def process_files(df_list):
 		df['traj_id'] = df['fl'].cumsum()
 
 		data = df[['traj_id','x_pos','y_pos']]
+
 		for i in range(1, INPUT_SEQ_LENGTH + 1):
-		    data['x_'+str(i)] = data.groupby(['traj_id'])['x_pos'].shift(-i)
-		    data['y_'+str(i)] = data.groupby(['traj_id'])['x_pos'].shift(-i)
-		# Remove NAs 
-		data = data.dropna()
+			data['x_'+str(i)] = data.groupby(['traj_id'])['x_pos'].shift(-i)
+			data['y_'+str(i)] = data.groupby(['traj_id'])['x_pos'].shift(-i)
+			# Remove NAs 
+			data = data.dropna()
+		processed_df_list.append(data)
+	return pd.concat(processed_df_list, ignore_index=True)
+
+
+def next_batch(batch, batch_size, filt_X, filt_Y):
+	x_batch = []
+	y_batch = []
+	for i in range(batch_size):
+
+		x_batch.append(filt_X[batch*batch_size+i])
+		y_batch.append(filt_Y[batch*batch_size+i])
+
+	return x_batch, y_batch
+
+def split_data():
+	# df_list, problem_files = read_files()
+	# data = process_files(df_list)
+	data = pd.read_pickle('processed_file')
+	train = 0.8
+	test = 0.1
+	dev = 0.1
+	total_length = len(data)
+	total_trajectories = np.ma.count(data['traj_id'].unique())
+	train_ix = train * total_trajectories
+	test_ix = test * total_trajectories
+	X_train, X_test, y_train, y_test = train_test_split(data.iloc[:, 3:], data[['x_pos','y_pos']], 
+														train_size = 0.8, test_size = 0.2, 
+														random_state = 1)
+	X_test, X_dev, y_test, y_dev = train_test_split(X_test, y_test, 
+														train_size = 0.5, test_size = 0.5, 
+														random_state = 1)
+	# return X_train, y_train, X_test, y_test, X_dev, y_dev
+
+	return convert_and_reshape(X_train, 'x'), convert_and_reshape(y_train, 'y'),\
+	convert_and_reshape(X_test, 'x'), convert_and_reshape(y_test, 'y'),\
+	convert_and_reshape(X_dev, 'x'), convert_and_reshape(y_dev, 'y')
+
+def convert_and_reshape(df, type):
+	if type == 'x':
+		return np.array(df).reshape(-1, 2, INPUT_SEQ_LENGTH)
+	else:
+		return np.array(df)
+
+
