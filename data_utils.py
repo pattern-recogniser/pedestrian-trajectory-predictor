@@ -14,6 +14,8 @@ else:
 # PROJECT_PATH = '/Users/anjalikarimpil/Google Drive/Dissertation'
 # PROJECT_PATH = '/users/mscdsa2018/ask2/Projects'
 INPUT_SEQ_LENGTH = 5
+OUTPUT_SEQ_LENGTH = 1
+NUM_DIMENSIONS = 2
 
 def get_data_folders():
 	'''
@@ -70,9 +72,15 @@ def process_files(df_list):
 	'''
 	Given a list of data frames, parsees it by splitting datetime field to 
 	date and time,
+
+	Returns - 
+	a dataframe of all the processed data with trajectory_id, x_pos, y_pos, and
+	x_pos and y_pos lead for INPUT_SEQ_LENGTH window size. Now we have all data
+	for training in one row
 	'''
 	processed_df_list = []
-	THRESHOLD = pd.to_timedelta('00:20:00.00000')
+	TIME_THRESHOLD = pd.to_timedelta('00:00:02.00000')
+	POSITION_THRESHOLD = 500
 	for df in df_list:
 		df['date'], df['time'] = df[0].str.split('T', 1).str
 		df[0] = pd.to_datetime(df[0], format="%Y-%m-%dT%H:%M:%S:%f")
@@ -82,29 +90,28 @@ def process_files(df_list):
 		df.reset_index()
 		df['time_lag'] = df.groupby(['person_id', 'date'])['datetime'].shift(1)
 		df['person_lag'] = df['person_id'].shift(1)
-		time_threshold = pd.to_timedelta('00:00:02.00000')
+
 		# flag 1 
-		df['fl_1'] = np.where((abs(df['time_lag'] - df['datetime']) > time_threshold) |\
-			(df['person_lag'] != df['person_id']), 1, 0)
+		df['fl_1'] = (abs(df['time_lag'] - df['datetime']) > TIME_THRESHOLD) |\
+			(df['person_lag'] != df['person_id'])
 		df['traj_id'] = df['fl_1'].cumsum()
-		position_threshold = 500
 		df['x_lag'] = df.groupby(['traj_id'])['x_pos'].shift(1)
 		df['y_lag'] = df.groupby(['traj_id'])['y_pos'].shift(1)
 
 		df['x_diff'] = abs(df['x_pos'] - df['x_lag'])
 		df['y_diff'] = abs(df['y_pos'] - df['y_lag'])
-		df['fl_2'] = np.where((df['x_diff'] > position_threshold) | \
-			(df['y_diff'] > position_threshold), 1, 0)
-		df['fl_3'] = np.where((df['fl_1'] | df['fl_2']), 1, 0)
+		df['fl_2'] = (df['x_diff'] > POSITION_THRESHOLD) | \
+			(df['y_diff'] > POSITION_THRESHOLD)
+		df['fl_3'] = (df['fl_1'] | df['fl_2'])
 		df['traj_id'] = df['fl_3'].cumsum()
 
-		data = df[['traj_id','x_pos','y_pos']]
+		data = df[['traj_id','x_pos','y_pos']].copy()
 
-		for i in range(1, INPUT_SEQ_LENGTH + 1):
-			data['x_'+str(i)] = data.groupby(['traj_id'])['x_pos'].shift(-i)
-			data['y_'+str(i)] = data.groupby(['traj_id'])['x_pos'].shift(-i)
-			# Remove NAs 
-			data = data.dropna()
+		for i in range(1, INPUT_SEQ_LENGTH + OUTPUT_SEQ_LENGTH):
+    		data['x_' + str(i)] = data.groupby(['traj_id'])['x_pos'].shift(-i)
+    		data['y_' + str(i)] = data.groupby(['traj_id'])['y_pos'].shift(-i)
+		# Remove NAs 
+		data = data.dropna()
 		processed_df_list.append(data)
 	return pd.concat(processed_df_list, ignore_index=True)
 
@@ -122,7 +129,7 @@ def next_batch(batch, batch_size, filt_X, filt_Y):
 def split_data():
 	df_list, problem_files = read_files()
 	data = process_files(df_list)
-	# data = pd.read_pickle('processed_file')
+	# 	data = pd.read_pickle('processed_file')
 	train = 0.8
 	test = 0.1
 	dev = 0.1
@@ -130,7 +137,9 @@ def split_data():
 	total_trajectories = np.ma.count(data['traj_id'].unique())
 	train_ix = train * total_trajectories
 	test_ix = test * total_trajectories
-	X_train, X_test, y_train, y_test = train_test_split(data.iloc[:, 3:], data[['x_pos','y_pos']], 
+	X = data.iloc[:, 1:(INPUT_SEQ_LENGTH * NUM_DIMENSIONS)]
+    Y = data.iloc[:, -(OUTPUT_SEQ_LENGTH * NUM_DIMENSIONS):]
+	X_train, X_test, y_train, y_test = train_test_split(X, Y, 
 														train_size = 0.8, test_size = 0.2, 
 														random_state = 1)
 	X_test, X_dev, y_test, y_dev = train_test_split(X_test, y_test, 
@@ -144,8 +153,8 @@ def split_data():
 
 def convert_and_reshape(df, type):
 	if type == 'x':
-		return np.array(df).reshape(-1, 2, INPUT_SEQ_LENGTH)
+		return np.array(df).reshape(-1, NUM_DIMENSIONS, INPUT_SEQ_LENGTH)
 	else:
-		return np.array(df)
+		return np.array(df.reshape(-1, NUM_DIMENSIONS, OUTPUT_SEQ_LENGTH))
 
 
