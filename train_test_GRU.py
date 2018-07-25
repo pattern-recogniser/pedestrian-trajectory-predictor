@@ -13,8 +13,8 @@ import numpy as np
 from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.python.ops import rnn, rnn_cell
 import matplotlib.pyplot as plt
-import read_data
 from data_utils import split_data
+import data_utils
 
 
 num_feature = 5
@@ -98,7 +98,7 @@ def train_neural_network(inputs):
 
             dev_epoch_loss = 0
             for batch in range(int(len(dev_X)/batch_size)):
-                x_batch, y_batch = read_data.next_batch(batch, batch_size, dev_X, dev_Y)
+                x_batch, y_batch = data_utils.next_batch(batch, batch_size, dev_X, dev_Y)
                 data_feed = {inputs: x_batch, targets: y_batch}
                 c = sess.run(cost, data_feed)
                 #print('dev: ', c)
@@ -107,7 +107,7 @@ def train_neural_network(inputs):
             # training cost
             train_epoch_loss = 0
             for batch in range(int(len(training_X)/batch_size)):
-                x_batch, y_batch = read_data.next_batch(batch, batch_size, training_X, training_Y)
+                x_batch, y_batch = data_utils.next_batch(batch, batch_size, training_X, training_Y)
                 data_feed = {inputs: x_batch, targets: y_batch}
                 _, c = sess.run([optimizer, cost], data_feed)
                 #print('dev: ', c)
@@ -150,7 +150,7 @@ def train_neural_network(inputs):
         '''
         test_prediction = np.empty([int(len(testing_X)/batch_size)*batch_size, 2])
         for batch in range(int(len(testing_X)/batch_size)):
-            x_batch, y_batch = read_data.next_batch(batch, batch_size, testing_X, testing_Y)
+            x_batch, y_batch = data_utils.next_batch(batch, batch_size, testing_X, testing_Y)
             data_feed = {inputs: x_batch, targets: y_batch}
             pre, c = sess.run([prediction, cost], data_feed)
             pre = np.array(pre)

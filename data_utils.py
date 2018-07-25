@@ -8,9 +8,9 @@ from sklearn.model_selection import train_test_split
 import platform
 
 if platform.system() == 'Darwin':
-    PROJECT_PATH = '/Users/anjalikarimpil/Google Drive/Dissertation'
+	PROJECT_PATH = '/Users/anjalikarimpil/Google Drive/Dissertation'
 else:
-    PROJECT_PATH = '/users/mscdsa2018/ask2/Projects'
+	PROJECT_PATH = '/users/mscdsa2018/ask2/Projects'
 # PROJECT_PATH = '/Users/anjalikarimpil/Google Drive/Dissertation'
 # PROJECT_PATH = '/users/mscdsa2018/ask2/Projects'
 INPUT_SEQ_LENGTH = 5
@@ -108,8 +108,8 @@ def process_files(df_list):
 		data = df[['traj_id','x_pos','y_pos']].copy()
 
 		for i in range(1, INPUT_SEQ_LENGTH + OUTPUT_SEQ_LENGTH):
-    		data['x_' + str(i)] = data.groupby(['traj_id'])['x_pos'].shift(-i)
-    		data['y_' + str(i)] = data.groupby(['traj_id'])['y_pos'].shift(-i)
+			data['x_' + str(i)] = data.groupby(['traj_id'])['x_pos'].shift(-i)
+			data['y_' + str(i)] = data.groupby(['traj_id'])['y_pos'].shift(-i)
 		# Remove NAs 
 		data = data.dropna()
 		processed_df_list.append(data)
@@ -117,6 +117,9 @@ def process_files(df_list):
 
 
 def next_batch(batch, batch_size, filt_X, filt_Y):
+	'''
+	Returns data in batches X-data and y_data
+	'''
 	x_batch = []
 	y_batch = []
 	for i in range(batch_size):
@@ -127,9 +130,17 @@ def next_batch(batch, batch_size, filt_X, filt_Y):
 	return x_batch, y_batch
 
 def split_data():
-	df_list, problem_files = read_files()
-	data = process_files(df_list)
-	# 	data = pd.read_pickle('processed_file')
+	'''
+	Returns training, test, and dev data both x and y that aren numpy arrays of the required
+	dimesions
+	'''
+	if os.path.exists('processed_file'):
+		data = pd.read_pickle('processed_file')
+	else:
+		df_list, problem_files = read_files()
+		data = process_files(df_list)
+		data.to_pickle('processed_file')
+	
 	train = 0.8
 	test = 0.1
 	dev = 0.1
@@ -138,7 +149,7 @@ def split_data():
 	train_ix = train * total_trajectories
 	test_ix = test * total_trajectories
 	X = data.iloc[:, 1:(INPUT_SEQ_LENGTH * NUM_DIMENSIONS)]
-    Y = data.iloc[:, -(OUTPUT_SEQ_LENGTH * NUM_DIMENSIONS):]
+	Y = data.iloc[:, -(OUTPUT_SEQ_LENGTH * NUM_DIMENSIONS):]
 	X_train, X_test, y_train, y_test = train_test_split(X, Y, 
 														train_size = 0.8, test_size = 0.2, 
 														random_state = 1)
@@ -152,9 +163,12 @@ def split_data():
 	convert_and_reshape(X_dev, 'x'), convert_and_reshape(y_dev, 'y')
 
 def convert_and_reshape(df, type):
+	'''
+	Mehtods that taskes in a dataframe and reshapes it 
+	'''
 	if type == 'x':
 		return np.array(df).reshape(-1, NUM_DIMENSIONS, INPUT_SEQ_LENGTH)
 	else:
-		return np.array(df.reshape(-1, NUM_DIMENSIONS, OUTPUT_SEQ_LENGTH))
+		return np.array(df).reshape(-1, NUM_DIMENSIONS)
 
 
