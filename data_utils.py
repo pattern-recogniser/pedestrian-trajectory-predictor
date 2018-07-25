@@ -5,14 +5,15 @@ import shutil
 import tarfile
 import matplotlib
 from sklearn.model_selection import train_test_split
+import platform
 
+if platform.system() == 'Darwin':
+    PROJECT_PATH = '/Users/anjalikarimpil/Google Drive/Dissertation'
+else:
+    PROJECT_PATH = '/users/mscdsa2018/ask2/Projects'
 # PROJECT_PATH = '/Users/anjalikarimpil/Google Drive/Dissertation'
-PROJECT_PATH = '/users/mscdsa2018/ask2/Projects'
+# PROJECT_PATH = '/users/mscdsa2018/ask2/Projects'
 INPUT_SEQ_LENGTH = 5
-# # TODO: Create folder structure in College System as the one here 
-# datafile_path = '/Users/anjalikarimpil/Google Drive/Dissertation/Data/Social LSTM/'
-# # datafile_path = '/users/mscdsa2018/ask2/Projects/Datasets/Social LSTM'
-
 
 def get_data_folders():
 	'''
@@ -74,15 +75,28 @@ def process_files(df_list):
 	THRESHOLD = pd.to_timedelta('00:20:00.00000')
 	for df in df_list:
 		df['date'], df['time'] = df[0].str.split('T', 1).str
-		df[0] = pd.to_datetime(df[0], format="%Y-%m-%dT%H:%M:%S:%f") 
+		df[0] = pd.to_datetime(df[0], format="%Y-%m-%dT%H:%M:%S:%f")
 		df.columns = ['datetime', 'place', 'x_pos', 'y_pos', 'person_id', 'date', 'time']
 
 		df.sort_values(['person_id','datetime'], inplace=True, ascending=True)
-		df['time_lead'] = df.groupby(['person_id', 'date'])['datetime'].shift(-1)
-		df['target_x'] = df.groupby(['person_id', 'date'])['x_pos'].shift(-1)
-		df['target_y'] = df.groupby(['person_id', 'date'])['y_pos'].shift(-1)
-		df['fl'] = np.where(abs(df['time_lead'] - df['datetime']) > THRESHOLD, 1, 0)
-		df['traj_id'] = df['fl'].cumsum()
+		df.reset_index()
+		df['time_lag'] = df.groupby(['person_id', 'date'])['datetime'].shift(1)
+		df['person_lag'] = df['person_id'].shift(1)
+		time_threshold = pd.to_timedelta('00:00:02.00000')
+		# flag 1 
+		df['fl_1'] = np.where((abs(df['time_lag'] - df['datetime']) > time_threshold) |\
+			(df['person_lag'] != df['person_id']), 1, 0)
+		df['traj_id'] = df['fl_1'].cumsum()
+		position_threshold = 500
+		df['x_lag'] = df.groupby(['traj_id'])['x_pos'].shift(1)
+		df['y_lag'] = df.groupby(['traj_id'])['y_pos'].shift(1)
+
+		df['x_diff'] = abs(df['x_pos'] - df['x_lag'])
+		df['y_diff'] = abs(df['y_pos'] - df['y_lag'])
+		df['fl_2'] = np.where((df['x_diff'] > position_threshold) | \
+			(df['y_diff'] > position_threshold), 1, 0)
+		df['fl_3'] = np.where((df['fl_1'] | df['fl_2']), 1, 0)
+		df['traj_id'] = df['fl_3'].cumsum()
 
 		data = df[['traj_id','x_pos','y_pos']]
 
@@ -106,9 +120,9 @@ def next_batch(batch, batch_size, filt_X, filt_Y):
 	return x_batch, y_batch
 
 def split_data():
-	# df_list, problem_files = read_files()
-	# data = process_files(df_list)
-	data = pd.read_pickle('processed_file')
+	df_list, problem_files = read_files()
+	data = process_files(df_list)
+	# data = pd.read_pickle('processed_file')
 	train = 0.8
 	test = 0.1
 	dev = 0.1
