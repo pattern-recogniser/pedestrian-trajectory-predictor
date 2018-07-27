@@ -10,7 +10,6 @@ Author: Mingchen Li
 '''
 import tensorflow as tf
 import numpy as np
-from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.python.ops import rnn, rnn_cell
 import matplotlib.pyplot as plt
 from data_utils import split_data
@@ -20,8 +19,9 @@ import data_utils
 num_feature = 5
 batch_size = 30
 rnn_size = 400
+num_layers = 3
 output_size = 1
-learning_rate = 0.0005
+learning_rate = 0.05
 
 inputs = tf.placeholder('float', [None, 2, num_feature], name = 'inputs')
 targets = tf.placeholder('float', name = 'targets')
@@ -38,13 +38,19 @@ into
 cell = tf.nn.rnn_cell.GRUCell(rnn_size)
 '''
 def recurrent_neural_network(inputs, w, b):
-    cell = tf.nn.rnn_cell.GRUCell(rnn_size)
+
+    cells = []
+    for _ in range(num_layers):
+      cell = tf.contrib.rnn.GRUCell(rnn_size)  # Or LSTMCell(num_units)
+      cells.append(cell)
+    cell = tf.contrib.rnn.MultiRNNCell(cells)
     initial_state = cell.zero_state(batch_size=batch_size, dtype=tf.float32)
 
     outputs, last_State = tf.nn.dynamic_rnn(cell, inputs, dtype = tf.float32, scope = "dynamic_rnn")
     outputs = tf.transpose(outputs, [1, 0, 2])
     # He has transposed here to facilitate gathering. Refer this
     # https://stackoverflow.com/questions/36764791/in-tensorflow-how-to-use-tf-gather-for-the-last-dimension
+    # This is beacuse tensorflow doesnt let you to do just do array[,:-1]
     last_output = tf.gather(outputs, 1, name="last_output")
     
     prediction = tf.matmul(last_output, w) + b
