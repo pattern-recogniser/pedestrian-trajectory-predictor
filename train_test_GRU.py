@@ -133,6 +133,8 @@ def train_neural_network(inputs):
             dev_cost_list.append(dev_epoch_loss)
             print('Train iteration', iteration,'train loss:',train_epoch_loss)
             print('Train iteration', iteration,'dev loss:',dev_epoch_loss)
+            if iteration == 15:
+                break
         iter_list = range(1, iteration+1)
         plt.figure(1)
         plt.plot(iter_list, train_cost_list)
