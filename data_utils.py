@@ -65,7 +65,7 @@ def read_files(file_count=1):
 		data_file_name = os.listdir(data_folder)[0]
 		data_file_path = os.path.join(data_folder, data_file_name)
 		try:
-			df_list.append(pd.read_csv(data_file_path, sep=';', header=None))
+			df_list.append(pd.read_csv(data_file_path, sep=';', header=None, error_bad_lines=False))
 		except Exception:
 			print(data_file_name)
 			problem_files.append(data_file_name)
@@ -132,46 +132,53 @@ def next_batch(batch, batch_size, filt_X, filt_Y):
 
 	return x_batch, y_batch
 
-def split_data():
+def get_data(force_preprocess=False):
 	'''
-	Returns training, test, and dev data both x and y that aren numpy arrays of the required
-	dimesions
+	Returns training, test, and dev data for input and labels that are numpy arrays.
+	Input data is of the shape num_rows x NUM_DIMENSIONS x INPUT_SEQ_LENGTH and 
+	Labels are of the shape num_rows x NUM_DIMENSIONS x OUTPUT_SEQ_LENGTH
 	'''
-	if os.path.exists('processed_file'):
-		data = pd.read_pickle('processed_file')
-	else:
+	if force_preprocess or not os.path.exists('processed_file'):
 		df_list, problem_files = read_files()
 		data = process_files(df_list)
 		data.to_pickle('processed_file')
-	
-	train = 0.8
-	test = 0.1
-	dev = 0.1
-	total_length = len(data)
-	total_trajectories = np.ma.count(data['traj_id'].unique())
-	train_ix = train * total_trajectories
-	test_ix = test * total_trajectories
-	X = data.iloc[:, 1:(INPUT_SEQ_LENGTH * NUM_DIMENSIONS)]
-	Y = data.iloc[:, -(OUTPUT_SEQ_LENGTH * NUM_DIMENSIONS):]
-	X_train, X_test, y_train, y_test = train_test_split(X, Y, 
-														train_size = 0.8, test_size = 0.2, 
-														random_state = 1)
-	X_test, X_dev, y_test, y_dev = train_test_split(X_test, y_test, 
-														train_size = 0.5, test_size = 0.5, 
-														random_state = 1)
-	# return X_train, y_train, X_test, y_test, X_dev, y_dev
+	else:
+		data = pd.read_pickle('processed_file')
+	X_train, y_train, X_test, y_test, X_dev, y_dev = split_data(data)
+	return X_train, y_train, X_test, y_test, X_dev, y_dev
 
-	return convert_and_reshape(X_train, 'x'), convert_and_reshape(y_train, 'y'),\
-	convert_and_reshape(X_test, 'x'), convert_and_reshape(y_test, 'y'),\
-	convert_and_reshape(X_dev, 'x'), convert_and_reshape(y_dev, 'y')
 
-def convert_and_reshape(df, type):
+def split_data(data):
 	'''
-	Mehtods that taskes in a dataframe and reshapes it 
+	Given data as a Pd dataframe, returns 3 sets of numpy arrays (train, test and dev)
+	using train_test_split from sklearn.model_selection
+	'''	
+	TRAIN = 0.7
+	TEST = 0.2
+	DEV = 0.1
+
+	X = np.array(data.iloc[:, 1:((INPUT_SEQ_LENGTH * NUM_DIMENSIONS) + 1)])
+	Y = np.array(data.iloc[:, -(OUTPUT_SEQ_LENGTH * NUM_DIMENSIONS):])
+	X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=(1 - TRAIN), 
+		random_state = 1)
+	X_test, X_dev, y_test, y_dev = train_test_split(X_test, y_test, test_size=(DEV/(TEST+DEV)), 
+		random_state = 1)
+	return reshape(X_train, 'x'), reshape(y_train, 'y'), reshape(X_test, 'x'),\
+	reshape(y_test, 'y'), reshape(X_dev, 'x'), reshape(y_dev, 'y')
+
+
+def reshape(data, type):
+	'''
+	Takes in a numpy array and reshapes according to current requirements.
+	For input
+	Returns -
+		numpy array of shape num_rows x NUM_DIMENSIONS x INPUT_SEQ_LENGTH 
+		for input, or,
+		numpy array of shape num_rows x NUM_DIMENSIONS for output
 	'''
 	if type == 'x':
-		return np.array(df).reshape(-1, NUM_DIMENSIONS, INPUT_SEQ_LENGTH)
+		return data.reshape(-1, NUM_DIMENSIONS, INPUT_SEQ_LENGTH)
 	else:
-		return np.array(df).reshape(-1, NUM_DIMENSIONS)
+		return data.reshape(-1, NUM_DIMENSIONS)
 
 

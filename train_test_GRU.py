@@ -12,7 +12,7 @@ import tensorflow as tf
 import numpy as np
 from tensorflow.python.ops import rnn, rnn_cell
 import matplotlib.pyplot as plt
-from data_utils import split_data
+from data_utils import get_data
 import data_utils
 
 
@@ -29,7 +29,7 @@ targets = tf.placeholder('float', name = 'targets')
 weight = tf.Variable(tf.truncated_normal([rnn_size, 2]), name = 'weight')
 bias = tf.Variable(tf.constant(0.1, shape=[2]),name = 'bias')
 
-training_X, training_Y, dev_X, dev_Y, testing_X, testing_Y = split_data()
+training_X, training_Y, dev_X, dev_Y, testing_X, testing_Y = get_data()
 
 '''
 This function defines a RNN. It is an LSTM RNN for now, but if want to change to GRU, just change the
