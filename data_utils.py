@@ -60,7 +60,6 @@ def read_files(file_count=1):
 	df_list = []
 	problem_files = []
 	for index, data_folder in enumerate(data_folders):
-		print(index)
 		if index >= file_count:
 			break
 		data_file_name = os.listdir(data_folder)[0]
@@ -228,7 +227,7 @@ class PedestrianData(object):
 	def next_batch(self, batch_num, batch_size, mode='train'):
 		'''
 		'''
-		print ("{} batch {}".format(mode, batch_num))
+		# print ("{} batch {}".format(mode, batch_num))
 		def _get_df_index_and_row(index):
 			df_index = 0
 			previous_cumulative_row_count = 0
@@ -264,17 +263,11 @@ class PedestrianData(object):
 			}
 			df = mode_df_dict[mode]
 			next_batch = df[current_index: next_index]
+		# import ipdb; ipdb.set_trace()
 		X = np.array(next_batch.iloc[:, 1:((config.INPUT_SEQ_LENGTH * config.NUM_DIMENSIONS) + 1)])
 		Y = np.array(next_batch.iloc[:, - (config.OUTPUT_SEQ_LENGTH * config.NUM_DIMENSIONS):])
-		X = X.reshape(-1, config.NUM_DIMENSIONS, config.INPUT_SEQ_LENGTH)
-		Y = Y.reshape(-1, config.NUM_DIMENSIONS, config.OUTPUT_SEQ_LENGTH)
+		X = X.reshape(-1, config.INPUT_SEQ_LENGTH, config.NUM_DIMENSIONS)
+		X = X.transpose([0, 2, 1])
+		Y = Y.reshape(-1, config.OUTPUT_SEQ_LENGTH, config.NUM_DIMENSIONS)
+		Y = Y.transpose([0, 2, 1])
 		return X, Y
-
-
-
-
-
-
-
-
-

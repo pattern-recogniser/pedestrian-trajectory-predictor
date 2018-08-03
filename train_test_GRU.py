@@ -12,28 +12,27 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 import tensorflow as tf
+from tensorflow.python.ops import rnn, rnn_cell
 
 import config
 import data_utils
 
-from tensorflow.python.ops import rnn, rnn_cell
 
-from data_utils import get_data
-
-
-batch_size = 3
+batch_size = 128
 rnn_size = 400
 num_layers = 3
 output_size = 1
 learning_rate = 0.05
 
+logs_path = 'logs/' 
+
 inputs = tf.placeholder('float', [None, 2, config.INPUT_SEQ_LENGTH], name = 'inputs')
-targets = tf.placeholder('float', name = 'targets')
+targets = tf.placeholder('float', [None, 2, config.OUTPUT_SEQ_LENGTH], name = 'targets')
 
 weight = tf.Variable(tf.truncated_normal([rnn_size, 2]), name = 'weight')
 bias = tf.Variable(tf.constant(0.1, shape=[2]),name = 'bias')
 
-# training_X, training_Y, dev_X, dev_Y, testing_X, testing_Y = get_data()
+# training_X, training_Y, dev_X, dev_Y, testing_X, testing_Y = get_data()                   
 pedestrian_data = data_utils.get_pedestrian_data()
 # pickled_object = '/Users/anjalikarimpil/Google Drive/Dissertation/Project code/' + \
 #                     'pedestrian-trajectory-predictor/ped_data.pickle'
@@ -67,6 +66,7 @@ def recurrent_neural_network(inputs, w, b):
     print("Last Output shape is ", last_output.shape)
     prediction = tf.matmul(last_output, w) + b
     print("Prediction shape is ", prediction.shape)
+    # import ipdb; ipdb.set_trace()
     prediction = tf.reshape(prediction, (-1, prediction.shape[1], config.OUTPUT_SEQ_LENGTH))
     return prediction
 
@@ -87,6 +87,7 @@ def train_neural_network(inputs):
     # The cost looks like it's the mean squared error, ie. sum of squared errors
     #cost = tf.square(tf.norm(tf.reduce_sum(prediction - targets, 0)))      # prediction: (len,2)
     optimizer = tf.train.AdamOptimizer(learning_rate).minimize(cost)
+
     
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -104,6 +105,8 @@ def train_neural_network(inputs):
                 # x_batch, y_batch = data_utils.next_batch(batch, batch_size, dev_X, dev_Y)
                 x_batch, y_batch = pedestrian_data.next_batch(mode='dev', batch_num=batch,
                                                               batch_size=batch_size)
+                # print('x_batch is:', x_batch)
+                # print('y_batch is', y_batch)
                 data_feed = {inputs: x_batch, targets: y_batch}
                 c = sess.run(cost, data_feed)
                 #print('dev: ', c)
@@ -119,6 +122,7 @@ def train_neural_network(inputs):
                 _, c = sess.run([optimizer, cost], data_feed)
                 #print('dev: ', c)
                 train_epoch_loss += c / batch_size
+
             train_epoch_loss = train_epoch_loss / (int(pedestrian_data.total_row_count / batch_size))
             # denominator int(len(training_X)/batch_size) is number of batches
             # train_epoch_loss outside the loop gives per instance loss across all batches
@@ -134,14 +138,14 @@ def train_neural_network(inputs):
             dev_cost_list.append(dev_epoch_loss)
             print('Train iteration', iteration,'train loss:', train_epoch_loss)
             print('Train iteration', iteration,'dev loss:', dev_epoch_loss)
-            if iteration == 2:
+            if iteration == 4:
                 break
         iter_list = range(1, iteration + 1)
         plt.figure(1)
         plt.plot(iter_list, train_cost_list)
         plt.plot(iter_list, dev_cost_list)
-        plt.title('iteration vs. epoch cost, university')
-        plt.show()
+        plt.title('iteration vs. epoch cost'    )
+        # plt.show()
 
         # After the training, print out the trained parameters
         trained_w = sess.run(weight)
@@ -170,7 +174,6 @@ def train_neural_network(inputs):
             pre, c = sess.run([prediction, cost], data_feed)
             pre = np.array(pre)
             test_epoch_loss += c
-            import ipdb; ipdb.set_trace()
             test_prediction[batch*batch_size : (batch+1)*batch_size, :] = pre
         testing_Y = np.concatenate(y_batch_list, axis=0)
         testing_X = np.concatenate(x_batch_list, axis=0)
