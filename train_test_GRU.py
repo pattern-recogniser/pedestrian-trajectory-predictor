@@ -11,6 +11,7 @@ Author: Mingchen Li
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
+from sklearn.metrics import mean_squared_error
 import tensorflow as tf
 from tensorflow.python.ops import rnn, rnn_cell
 
@@ -112,12 +113,12 @@ def train_neural_network(inputs):
                 # print('x_batch is:', x_batch)
                 # print('y_batch is', y_batch)
                 data_feed = {inputs: x_batch, targets: y_batch}
-                import ipdb; ipdb.set_trace()
+                
                 c, dev_predict, ouputs = sess.run([cost, prediction, pred_1], data_feed)
                 print('================Dev predict')
                 print('X_batch:', x_batch, 'y_batch', y_batch)
                 print('predict final', dev_predict)
-                #print('dev: ', c)
+                print('dev: ', c)
                 dev_epoch_loss += c/batch_size
 
             dev_epoch_loss = dev_epoch_loss / (int(len(pedestrian_data.dev_df) / batch_size))
@@ -155,7 +156,7 @@ def train_neural_network(inputs):
             test_prediction = np.empty([len(pedestrian_data.test_df), 2, config.OUTPUT_SEQ_LENGTH])
 
 
-            if iteration == 2:
+            if iteration == 100:
                 break
         iter_list = range(1, iteration + 1)
         plt.figure(1)
@@ -200,12 +201,21 @@ def train_neural_network(inputs):
 
         # Save predicted data and ground truth data into a .csv file.
         # import ipdb; ipdb.set_trace()
-        test_prediction = np.transpose(test_prediction)                                                             # The first row of file: prediction
-        testing_Y_array = np.transpose(np.array(testing_Y)[0 : int(len(testing_X)/batch_size)*batch_size, :])       # The second row of file: ground truth
-        test_prediction_and_real = np.vstack((test_prediction, testing_Y_array))
-        test_prediction_and_real = test_prediction_and_real.reshape(
-                    (test_prediction_and_real.shape[0] * test_prediction_and_real.shape[1], -1))
-        np.savetxt("GRU_test_prediction_and_real.csv", test_prediction_and_real, delimiter = ",")
+        testing_X = pedestrian_data.data_denormalise(
+        	testing_X.reshape(-1, config.INPUT_SEQ_LENGTH * config.NUM_DIMENSIONS), 'x')
+        testing_Y = pedestrian_data.data_denormalise(
+        	testing_Y.reshape(-1, config.OUTPUT_SEQ_LENGTH * config.NUM_DIMENSIONS), 'y')
+        test_prediction = pedestrian_data.data_denormalise(
+        	test_prediction.reshape(-1, config.OUTPUT_SEQ_LENGTH * config.NUM_DIMENSIONS), 'y')
+        test_all_data = np.hstack((testing_X, testing_Y, test_prediction))
+        test_accuracy = mean_squared_error(testing_Y, test_prediction)
+        print('Test accuracy', test_accuracy)
+        # test_prediction = np.transpose(test_prediction)                                                             # The first row of file: prediction
+        # testing_Y_array = np.transpose(np.array(testing_Y)[0 : int(len(testing_X)/batch_size)*batch_size, :])       # The second row of file: ground truth
+        # test_prediction_and_real = np.vstack((test_prediction, testing_Y_array))
+        # test_prediction_and_real = test_prediction_and_real.reshape(
+        #             (test_prediction_and_real.shape[0] * test_prediction_and_real.shape[1], -1))
+        np.savetxt("GRU_test_prediction_and_real.csv", test_all_data, delimiter = ",")
 
 
 train_neural_network(inputs)

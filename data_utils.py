@@ -9,6 +9,7 @@ import pickle
 import platform
 import shutil
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
 import tarfile
 
 import config
@@ -224,6 +225,23 @@ class PedestrianData(object):
 		self.row_counts[-1] = len(train_df)
 		self.total_row_count = sum(self.row_counts)
 
+	def data_normalise(self, data, type):
+		if type == 'x':
+			self.x_scaler = MinMaxScaler()
+			x_train_scaled = self.x_scaler.fit_transform(data)
+			return x_train_scaled
+		else:
+			self.y_scaler = MinMaxScaler()
+			y_train_scaled = self.y_scaler.fit_transform(data)
+			return y_train_scaled
+
+	def data_denormalise(self, data, type):
+		if type == 'x':
+			return self.x_scaler.inverse_transform(data)
+		else:
+			return self.y_scaler.inverse_transform(data)
+
+
 	def next_batch(self, batch_num, batch_size, mode='train'):
 		'''
 		'''
@@ -263,11 +281,16 @@ class PedestrianData(object):
 			}
 			df = mode_df_dict[mode]
 			next_batch = df[current_index: next_index]
-		# import ipdb; ipdb.set_trace()
 		X = np.array(next_batch.iloc[:, 1:((config.INPUT_SEQ_LENGTH * config.NUM_DIMENSIONS) + 1)])
 		Y = np.array(next_batch.iloc[:, - (config.OUTPUT_SEQ_LENGTH * config.NUM_DIMENSIONS):])
+
 		X = X.reshape(-1, config.INPUT_SEQ_LENGTH, config.NUM_DIMENSIONS)
 		X = X.transpose([0, 2, 1])
+		X = self.data_normalise(X.reshape((-1, config.INPUT_SEQ_LENGTH * config.NUM_DIMENSIONS)), 'x')
+		X = X.reshape(-1, config.NUM_DIMENSIONS, config.INPUT_SEQ_LENGTH)
+
 		Y = Y.reshape(-1, config.OUTPUT_SEQ_LENGTH, config.NUM_DIMENSIONS)
 		Y = Y.transpose([0, 2, 1])
+		Y = self.data_normalise(Y.reshape((-1, config.OUTPUT_SEQ_LENGTH * config.NUM_DIMENSIONS)), 'y')
+		Y = Y.reshape(-1, config.NUM_DIMENSIONS, config.OUTPUT_SEQ_LENGTH)
 		return X, Y
