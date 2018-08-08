@@ -19,11 +19,10 @@ import config
 import data_utils
 
 
-batch_size = 3
-rnn_size = 400
+batch_size = config.BATCH_SIZE
+rnn_size = config.RNN_SIZE
 num_layers = 3
-output_size = 1
-learning_rate = 0.05
+learning_rate = config.LEARNING_RATE
 
 logs_path = 'logs/' 
 
@@ -60,32 +59,31 @@ def recurrent_neural_network(inputs, w, b):
 
     outputs, last_State = tf.nn.dynamic_rnn(cell, inputs, initial_state=initial_state, 
     	dtype=tf.float32, scope="dynamic_rnn")
-    print("Output shape is ", outputs.shape)
+    # print("Output shape is ", outputs.shape)
     outputs = tf.transpose(outputs, [1, 0, 2])
     # He has transposed here to facilitate gathering. Refer this
     # https://stackoverflow.com/questions/36764791/in-tensorflow-how-to-use-tf-gather-for-the-last-dimension
     # This is beacuse tensorflow doesnt let you to do just do array[,:-1]
     last_output = tf.gather(outputs, 1, name="last_output")
-    print("Last Output shape is ", last_output.shape)
+    # print("Last Output shape is ", last_output.shape)
     prediction = tf.matmul(last_output, w) + b
-    print("Prediction shape is ", prediction.shape)
-    import ipdb; ipdb.set_trace()
+    # print("Prediction shape is ", prediction.shape)
     prediction = tf.reshape(prediction, (-1, config.NUM_DIMENSIONS, config.OUTPUT_SEQ_LENGTH))
 
     return prediction, outputs
 
 '''
-This function trains the model and tests its performance. After each iteration of the training, it prints out the number of iteration
-and the loss of that iteration. When the training is done, prints out the trainingned parameters. After the testing, it prints out the test
+This function trains the model and tests its performance. After each epoch of the training, it prints out the number of epoch
+and the loss of that epoch. When the training is done, prints out the trainingned parameters. After the testing, it prints out the test
 loss and saves the predicted values and the ground truth values into a new .csv file so that it is each to compare the results and
 evaluate the model performance. The file has two rows, with the first row being predicted values and second row being real values.
 '''
 def train_neural_network(inputs):
     
     prediction, pred_1 = recurrent_neural_network(inputs, weight, bias)
-    print('prediction', prediction.shape)
-    print('target shape', targets.shape)
-    print('shape of result of tf.reduce_sum(prediction - targets, 0)', tf.reduce_sum(prediction - targets, 0).shape)
+    # print('prediction', prediction.shape)
+    # print('target shape', targets.shape)
+    # print('shape of result of tf.reduce_sum(prediction - targets, 0)', tf.reduce_sum(prediction - targets, 0).shape)
 
     cost = tf.reduce_sum(tf.square(tf.norm(prediction - targets, ord='euclidean', axis=1)))
     # The cost looks like it's the mean squared error, ie. sum of squared errors
@@ -98,11 +96,11 @@ def train_neural_network(inputs):
 
         train_epoch_loss = 1.0
         prev_train_loss = 0.0
-        iteration = 0
+        epoch = 0
         train_cost_list = []
         dev_cost_list = []
         while (abs(train_epoch_loss - prev_train_loss) > 1e-5):
-            iteration += 1
+            epoch += 1
             prev_train_loss = train_epoch_loss
 
             dev_epoch_loss = 0
@@ -115,10 +113,10 @@ def train_neural_network(inputs):
                 data_feed = {inputs: x_batch, targets: y_batch}
                 
                 c, dev_predict, ouputs = sess.run([cost, prediction, pred_1], data_feed)
-                print('================Dev predict')
-                print('X_batch:', x_batch, 'y_batch', y_batch)
-                print('predict final', dev_predict)
-                print('dev: ', c)
+                # print('================Dev predict')
+                # print('X_batch:', x_batch, 'y_batch', y_batch)
+                # print('predict final', dev_predict)
+                # print('dev: ', c)
                 dev_epoch_loss += c/batch_size
 
             dev_epoch_loss = dev_epoch_loss / (int(len(pedestrian_data.dev_df) / batch_size))
@@ -150,19 +148,19 @@ def train_neural_network(inputs):
 
             train_cost_list.append(train_epoch_loss)
             dev_cost_list.append(dev_epoch_loss)
-            print('Train iteration', iteration,'train loss:', train_epoch_loss)
-            print('Train iteration', iteration,'dev loss:', dev_epoch_loss)
+            print('Train epoch', epoch,'train loss:', train_epoch_loss)
+            print('Train epoch', epoch,'dev loss:', dev_epoch_loss)
             test_epoch_loss = 0
             test_prediction = np.empty([len(pedestrian_data.test_df), 2, config.OUTPUT_SEQ_LENGTH])
 
 
-            if iteration == 3:
+            if epoch == config.NUM_EPOCHS:
                 break
-        iter_list = range(1, iteration + 1)
+        iter_list = range(1, epoch + 1)
         plt.figure(1)
         plt.plot(iter_list, train_cost_list)
         plt.plot(iter_list, dev_cost_list)
-        plt.title('iteration vs. epoch cost'    )
+        plt.title('epoch vs. cost'    )
         # plt.show()
 
         # After the training, print out the trained parameters
@@ -200,7 +198,6 @@ def train_neural_network(inputs):
         print('Test loss:', test_epoch_loss)
 
         # Save predicted data and ground truth data into a .csv file.
-        # import ipdb; ipdb.set_trace()
         testing_X = pedestrian_data.data_denormalise(
         	testing_X.reshape(-1, config.INPUT_SEQ_LENGTH * config.NUM_DIMENSIONS), 'x')
         testing_Y = pedestrian_data.data_denormalise(

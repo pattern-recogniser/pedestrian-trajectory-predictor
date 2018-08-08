@@ -142,7 +142,7 @@ def get_data(force_preprocess=False):
 		Labels are of the shape num_rows x config.NUM_DIMENSIONS x config.OUTPUT_SEQ_LENGTH
 	'''
 	if force_preprocess or not os.path.exists('processed_file'):
-		df_list, problem_files = read_files()
+		df_list, problem_files = read_files(config.NUM_FILES)
 		data = process_files(df_list)
 		data.to_pickle('processed_file')
 	else:
@@ -200,7 +200,7 @@ class PedestrianData(object):
 	'''
 	'''
 	def __init__(self):
-		self.train_df_list, _ = read_files(file_count=1)
+		self.train_df_list, _ = read_files(file_count=config.NUM_FILES)
 		self.train_df_list = process_files(self.train_df_list)
 		self.row_counts = [len(df) for df in self.train_df_list]
 		self.total_row_count = sum(self.row_counts)
