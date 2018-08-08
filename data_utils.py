@@ -185,9 +185,9 @@ def data_reshape(data, type):
 		return data.reshape(-1, config.NUM_DIMENSIONS)
 
 
-def get_pedestrian_data():
+def get_pedestrian_data(force_preprocess=False):
 	pickled_object = 'pedestrian_data.pickle'
-	if os.path.exists(pickled_object):
+	if os.path.exists(pickled_object) and (not force_preprocess):
 		with open(pickled_object, 'rb') as handle:
 			pedestrian_data = pickle.load(handle)
 	else:

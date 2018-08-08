@@ -33,7 +33,7 @@ weight = tf.Variable(tf.constant(0.0025, shape=[rnn_size, config.NUM_DIMENSIONS 
 bias = tf.Variable(tf.constant(0.1, shape=[config.NUM_DIMENSIONS * config.OUTPUT_SEQ_LENGTH]),name = 'bias')
 
 # training_X, training_Y, dev_X, dev_Y, testing_X, testing_Y = get_data()                   
-pedestrian_data = data_utils.get_pedestrian_data()
+pedestrian_data = data_utils.get_pedestrian_data(force_preprocess=config.FORCE_PREPROCESS)
 # pickled_object = '/Users/anjalikarimpil/Google Drive/Dissertation/Project code/' + \
 #                     'pedestrian-trajectory-predictor/ped_data.pickle'
 # with open(pickled_object, 'wb') as handle:
