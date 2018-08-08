@@ -27,11 +27,11 @@ learning_rate = 0.05
 
 logs_path = 'logs/' 
 
-inputs = tf.placeholder('float', [None, 2, config.INPUT_SEQ_LENGTH], name = 'inputs')
-targets = tf.placeholder('float', [None, 2, config.OUTPUT_SEQ_LENGTH], name = 'targets')
+inputs = tf.placeholder('float', [None, config.NUM_DIMENSIONS, config.INPUT_SEQ_LENGTH], name = 'inputs')
+targets = tf.placeholder('float', [None, config.NUM_DIMENSIONS, config.OUTPUT_SEQ_LENGTH], name = 'targets')
 
-weight = tf.Variable(tf.constant(0.0025, shape=[rnn_size, 2]), name = 'weight')
-bias = tf.Variable(tf.constant(0.1, shape=[2]),name = 'bias')
+weight = tf.Variable(tf.constant(0.0025, shape=[rnn_size, config.NUM_DIMENSIONS * config.OUTPUT_SEQ_LENGTH]), name = 'weight')
+bias = tf.Variable(tf.constant(0.1, shape=[config.NUM_DIMENSIONS * config.OUTPUT_SEQ_LENGTH]),name = 'bias')
 
 # training_X, training_Y, dev_X, dev_Y, testing_X, testing_Y = get_data()                   
 pedestrian_data = data_utils.get_pedestrian_data()
@@ -59,7 +59,7 @@ def recurrent_neural_network(inputs, w, b):
     initial_state = cell.zero_state(batch_size=batch_size, dtype=tf.float32)
 
     outputs, last_State = tf.nn.dynamic_rnn(cell, inputs, initial_state=initial_state, 
-    	dtype = tf.float32, scope = "dynamic_rnn")
+    	dtype=tf.float32, scope="dynamic_rnn")
     print("Output shape is ", outputs.shape)
     outputs = tf.transpose(outputs, [1, 0, 2])
     # He has transposed here to facilitate gathering. Refer this
@@ -69,8 +69,8 @@ def recurrent_neural_network(inputs, w, b):
     print("Last Output shape is ", last_output.shape)
     prediction = tf.matmul(last_output, w) + b
     print("Prediction shape is ", prediction.shape)
-    # import ipdb; ipdb.set_trace()
-    prediction = tf.reshape(prediction, (-1, prediction.shape[1], config.OUTPUT_SEQ_LENGTH))
+    import ipdb; ipdb.set_trace()
+    prediction = tf.reshape(prediction, (-1, config.NUM_DIMENSIONS, config.OUTPUT_SEQ_LENGTH))
 
     return prediction, outputs
 
@@ -156,7 +156,7 @@ def train_neural_network(inputs):
             test_prediction = np.empty([len(pedestrian_data.test_df), 2, config.OUTPUT_SEQ_LENGTH])
 
 
-            if iteration == 100:
+            if iteration == 3:
                 break
         iter_list = range(1, iteration + 1)
         plt.figure(1)
