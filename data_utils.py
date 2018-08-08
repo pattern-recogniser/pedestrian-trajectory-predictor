@@ -247,15 +247,18 @@ class PedestrianData(object):
 		'''
 		# print ("{} batch {}".format(mode, batch_num))
 		def _get_df_index_and_row(index):
+			'''Given an index of the row, returns which dataframe and what row in that dataframe
+			the given index appears in
+			'''
 			df_index = 0
 			previous_cumulative_row_count = 0
 			row = index
 			for ix, cumulative_row_count in enumerate(cumulative_row_counts):
-				if current_index < cumulative_row_count:
+				if index < cumulative_row_count:
 					df_index = ix
 					if ix > 0:
 						previous_cumulative_row_count = cumulative_row_counts[ix - 1]
-						row = index % previous_cumulative_row_count
+						row = index - previous_cumulative_row_count
 					break
 			return df_index, row
 
@@ -274,6 +277,9 @@ class PedestrianData(object):
 			else:
 				next_batch = pd.concat([current_index_df.iloc[current_index_df_row:],
 										next_index_df.iloc[:next_index_df_row]])
+			# print('current df index is {}, number of rows is {}'.format(current_df_index, self.row_counts[current_df_index]))
+			# print('next df index is {}, number of rows is {}'.format(next_df_index, self.row_counts[next_df_index]))
+			# print('next df row index is {}'.format(next_index_df_row))
 		else:
 			mode_df_dict = {
 				'test': self.test_df,
@@ -293,4 +299,5 @@ class PedestrianData(object):
 		Y = Y.transpose([0, 2, 1])
 		Y = self.data_normalise(Y.reshape((-1, config.OUTPUT_SEQ_LENGTH * config.NUM_DIMENSIONS)), 'y')
 		Y = Y.reshape(-1, config.NUM_DIMENSIONS, config.OUTPUT_SEQ_LENGTH)
+
 		return X, Y

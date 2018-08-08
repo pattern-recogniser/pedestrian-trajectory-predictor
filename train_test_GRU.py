@@ -26,11 +26,15 @@ learning_rate = config.LEARNING_RATE
 
 logs_path = 'logs/' 
 
-inputs = tf.placeholder('float', [None, config.NUM_DIMENSIONS, config.INPUT_SEQ_LENGTH], name = 'inputs')
-targets = tf.placeholder('float', [None, config.NUM_DIMENSIONS, config.OUTPUT_SEQ_LENGTH], name = 'targets')
+inputs = tf.placeholder('float', [None, config.NUM_DIMENSIONS, config.INPUT_SEQ_LENGTH], 
+    name = 'inputs')
+targets = tf.placeholder('float', [None, config.NUM_DIMENSIONS, config.OUTPUT_SEQ_LENGTH],
+    name = 'targets')
 
-weight = tf.Variable(tf.constant(0.0025, shape=[rnn_size, config.NUM_DIMENSIONS * config.OUTPUT_SEQ_LENGTH]), name = 'weight')
-bias = tf.Variable(tf.constant(0.1, shape=[config.NUM_DIMENSIONS * config.OUTPUT_SEQ_LENGTH]),name = 'bias')
+weight = tf.Variable(tf.constant(0.0025, 
+    shape=[rnn_size, config.NUM_DIMENSIONS * config.OUTPUT_SEQ_LENGTH]), name = 'weight')
+bias = tf.Variable(tf.constant(0.1, shape=[config.NUM_DIMENSIONS * config.OUTPUT_SEQ_LENGTH]),
+    name = 'bias')
 
 # training_X, training_Y, dev_X, dev_Y, testing_X, testing_Y = get_data()                   
 pedestrian_data = data_utils.get_pedestrian_data(force_preprocess=config.FORCE_PREPROCESS)
@@ -127,6 +131,7 @@ def train_neural_network(inputs):
                 x_batch, y_batch = pedestrian_data.next_batch(mode='train', batch_num=batch,
                                                               batch_size=batch_size)
                 data_feed = {inputs: x_batch, targets: y_batch}
+                # print('Batch number is {} X-batch shape is {}. \n. y_batch shape is {}'.format(batch, x_batch.shape, y_batch.shape))
                 _, c = sess.run([optimizer, cost], data_feed)
                 
                 #print('dev: ', c)
