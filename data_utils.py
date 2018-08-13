@@ -246,6 +246,8 @@ class PedestrianData(object):
 		'''
 		'''
 		# print ("{} batch {}".format(mode, batch_num))
+		if batch_num == 157:
+			import ipdb; ipdb.set_trace()
 		def _get_df_index_and_row(index):
 			'''Given an index of the row, returns which dataframe and what row in that dataframe
 			the given index appears in
@@ -266,13 +268,15 @@ class PedestrianData(object):
 		next_index = (batch_num + 1) * batch_size
 		if mode == 'train':
 			current_index = current_index % self.total_row_count
+			# if next_index/total_row_count:
+			# 	next_index = total_row_count - 1
 			next_index = next_index % self.total_row_count
 			cumulative_row_counts = np.array(self.row_counts).cumsum()
 			current_df_index, current_index_df_row = _get_df_index_and_row(current_index)
 			current_index_df = self.train_df_list[current_df_index]
 			next_df_index, next_index_df_row = _get_df_index_and_row(next_index)
 			next_index_df = self.train_df_list[next_df_index]
-			if current_df_index == next_df_index:
+			if (current_df_index == next_df_index) and (current_index_df_row < next_index_df_row):
 				next_batch = current_index_df.iloc[current_index_df_row:next_index_df_row].copy()
 			else:
 				next_batch = pd.concat([current_index_df.iloc[current_index_df_row:],
@@ -292,6 +296,7 @@ class PedestrianData(object):
 
 		X = X.reshape(-1, config.INPUT_SEQ_LENGTH, config.NUM_DIMENSIONS)
 		X = X.transpose([0, 2, 1])
+		print('Batch_num', batch_num)
 		X = self.data_normalise(X.reshape((-1, config.INPUT_SEQ_LENGTH * config.NUM_DIMENSIONS)), 'x')
 		X = X.reshape(-1, config.NUM_DIMENSIONS, config.INPUT_SEQ_LENGTH)
 
