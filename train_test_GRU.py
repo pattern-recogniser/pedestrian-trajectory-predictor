@@ -1,12 +1,14 @@
 '''
-This file contains two functions. The first one builds an LSTM RNN model, and the second one used the model to train the parameters and
-tests in test set. Before the functions, some variables are defined. These variables can be changed during model evaluation process. This
+This file contains two functions. The first one builds an RNN model, using a GRU architecure
+and the second one used the model to train the parameters and
+tests in test set. Before the functions, some variables are defined.
+These variables can be changed during model evaluation process. This
 file can be run directly on terminal line:
 
-python train_test_LSTM.py
+python train_test_GRU.py
 
 
-Author: Mingchen Li
+Author: Anjali Karimpil
 '''
 import matplotlib.pyplot as plt
 import numpy as np
@@ -36,23 +38,15 @@ weight = tf.Variable(tf.constant(0.0025,
 bias = tf.Variable(tf.constant(0.1, shape=[config.NUM_DIMENSIONS * config.OUTPUT_SEQ_LENGTH]),
     name = 'bias')
 
-# training_X, training_Y, dev_X, dev_Y, testing_X, testing_Y = get_data()                   
 pedestrian_data = data_utils.get_pedestrian_data(force_preprocess=config.FORCE_PREPROCESS)
-# pickled_object = '/Users/anjalikarimpil/Google Drive/Dissertation/Project code/' + \
-#                     'pedestrian-trajectory-predictor/ped_data.pickle'
-# with open(pickled_object, 'wb') as handle:
-#     pickle.dump(pedestrian_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-# # with open(pickled_object, 'rb') as handle:
-# #     pedestrian_data = pickle.load(handle)
 '''
-This function defines a RNN. It is an LSTM RNN for now, but if want to change to GRU, just change the
+This function defines a RNN. It is a GRU cell for now
+To make it an  LSTM RNN change to
 cell = tf.nn.rnn_cell.BasicLSTMCell(rnn_size,state_is_tuple=True)
-into
-cell = tf.nn.rnn_cell.GRUCell(rnn_size)
 '''
 def recurrent_neural_network(inputs, w, b):
-
+	# If you need to add multiple layers
     # cells = []
     # for _ in range(num_layers):
     #   cell = tf.contrib.rnn.GRUCell(rnn_size)  # Or LSTMCell(num_units)
@@ -65,22 +59,21 @@ def recurrent_neural_network(inputs, w, b):
     	dtype=tf.float32, scope="dynamic_rnn")
     # print("Output shape is ", outputs.shape)
     outputs = tf.transpose(outputs, [1, 0, 2])
-    # He has transposed here to facilitate gathering. Refer this
     # https://stackoverflow.com/questions/36764791/in-tensorflow-how-to-use-tf-gather-for-the-last-dimension
     # This is beacuse tensorflow doesnt let you to do just do array[,:-1]
     last_output = tf.gather(outputs, 1, name="last_output")
-    # print("Last Output shape is ", last_output.shape)
     prediction = tf.matmul(last_output, w) + b
-    # print("Prediction shape is ", prediction.shape)
     prediction = tf.reshape(prediction, (-1, config.NUM_DIMENSIONS, config.OUTPUT_SEQ_LENGTH))
-
     return prediction, outputs
 
 '''
-This function trains the model and tests its performance. After each epoch of the training, it prints out the number of epoch
-and the loss of that epoch. When the training is done, prints out the trainingned parameters. After the testing, it prints out the test
-loss and saves the predicted values and the ground truth values into a new .csv file so that it is each to compare the results and
-evaluate the model performance. The file has two rows, with the first row being predicted values and second row being real values.
+This function trains the model and tests its performance. After each epoch of the training, 
+it prints out the number of epoch
+and the loss of that epoch. When the training is done, prints out the trained parameters. 
+After the testing, it prints out the test
+loss and saves the predicted values and the ground truth values into a new .csv file
+so that it is each to compare the results and
+evaluate the model performance. 
 '''
 def train_neural_network(inputs):
     
@@ -131,10 +124,8 @@ def train_neural_network(inputs):
                 x_batch, y_batch = pedestrian_data.next_batch(mode='train', batch_num=batch,
                                                               batch_size=batch_size)
                 data_feed = {inputs: x_batch, targets: y_batch}
-                # print('Batch number is {} X-batch shape is {}. \n. y_batch shape is {}'.format(batch, x_batch.shape, y_batch.shape))
                 _, c = sess.run([optimizer, cost], data_feed)
-                
-                #print('dev: ', c)
+
                 train_epoch_loss += c / batch_size
 
             train_epoch_loss = train_epoch_loss / (int(pedestrian_data.total_row_count / batch_size))
@@ -148,9 +139,6 @@ def train_neural_network(inputs):
             _, dev_c = sess.run([prediction, cost], data_feed)
             dev_epoch_loss = dev_c/len(dev_X)
             '''
-
-
-
             train_cost_list.append(train_epoch_loss)
             dev_cost_list.append(dev_epoch_loss)
             print('Train epoch', epoch,'train loss:', train_epoch_loss)
@@ -161,27 +149,15 @@ def train_neural_network(inputs):
 
             if epoch == config.NUM_EPOCHS:
                 break
-        iter_list = range(1, epoch + 1)
-        plt.figure(1)
-        plt.plot(iter_list, train_cost_list)
-        plt.plot(iter_list, dev_cost_list)
-        plt.title('epoch vs. cost'    )
-        # plt.show()
 
         # After the training, print out the trained parameters
         trained_w = sess.run(weight)
         trained_b = sess.run(bias)
-        # print('trained_w: ', trained_w, 'trained_b: ', trained_b, 'trained_w shape: ', trained_w.shape)
+        print('trained_w: ', trained_w, 'trained_b: ', trained_b, 'trained_w shape: ', trained_w.shape)
 
         # Begin testing
         test_epoch_loss = 0
         test_prediction = np.empty([len(pedestrian_data.test_df), 2, config.OUTPUT_SEQ_LENGTH])
-        '''
-        data_feed = {inputs: testing_X, targets: testing_Y}
-        pre, test_c = sess.run([prediction, cost], data_feed)
-        test_prediction = pre
-        test_epoch_loss = test_c/int(len(testing_X))
-        '''
         test_prediction = np.empty([int(len(pedestrian_data.test_df) / batch_size) * batch_size, 2, config.OUTPUT_SEQ_LENGTH])
         y_batch_list = []
         x_batch_list = []
@@ -212,11 +188,9 @@ def train_neural_network(inputs):
         test_all_data = np.hstack((testing_X, testing_Y, test_prediction))
         test_accuracy = mean_squared_error(testing_Y, test_prediction)
         print('Test accuracy', test_accuracy)
-        # test_prediction = np.transpose(test_prediction)                                                             # The first row of file: prediction
-        # testing_Y_array = np.transpose(np.array(testing_Y)[0 : int(len(testing_X)/batch_size)*batch_size, :])       # The second row of file: ground truth
-        # test_prediction_and_real = np.vstack((test_prediction, testing_Y_array))
-        # test_prediction_and_real = test_prediction_and_real.reshape(
-        #             (test_prediction_and_real.shape[0] * test_prediction_and_real.shape[1], -1))
+        print('Test accuracy another way', np.square(np.subtract(testing_Y, test_prediction)).mean())
+        print('row wise Test accuracy', np.square(np.subtract(testing_Y, test_prediction)).sum(axis=1))
+
         np.savetxt("GRU_test_prediction_and_real.csv", test_all_data, delimiter = ",")
 
 
