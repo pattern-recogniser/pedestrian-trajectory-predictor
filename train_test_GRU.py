@@ -19,6 +19,7 @@ from tensorflow.python.ops import rnn, rnn_cell
 
 import config
 import data_utils
+import visualise
 
 
 batch_size = config.BATCH_SIZE
@@ -101,7 +102,7 @@ def train_neural_network(inputs):
             prev_train_loss = train_epoch_loss
 
             dev_epoch_loss = 0
-            for batch in range(int(len(pedestrian_data.dev_df)/batch_size)):
+            for batch in range(int(pedestrian_data.dev_df_len / batch_size)):
                 # x_batch, y_batch = data_utils.next_batch(batch, batch_size, dev_X, dev_Y)
                 x_batch, y_batch = pedestrian_data.next_batch(mode='dev', batch_num=batch,
                                                               batch_size=batch_size)
@@ -116,7 +117,7 @@ def train_neural_network(inputs):
                 # print('dev: ', c)
                 dev_epoch_loss += c/batch_size
 
-            dev_epoch_loss = dev_epoch_loss / (int(len(pedestrian_data.dev_df) / batch_size))
+            dev_epoch_loss = dev_epoch_loss / (int(pedestrian_data.dev_df_len / batch_size))
             # training cost
             train_epoch_loss = 0
             for batch in range(int(pedestrian_data.total_row_count/batch_size)):
@@ -144,7 +145,7 @@ def train_neural_network(inputs):
             print('Train epoch', epoch,'train loss:', train_epoch_loss)
             print('Train epoch', epoch,'dev loss:', dev_epoch_loss)
             test_epoch_loss = 0
-            test_prediction = np.empty([len(pedestrian_data.test_df), 2, config.OUTPUT_SEQ_LENGTH])
+            test_prediction = np.empty([pedestrian_data.test_df_len, 2, config.OUTPUT_SEQ_LENGTH])
 
 
             if epoch == config.NUM_EPOCHS:
@@ -157,11 +158,11 @@ def train_neural_network(inputs):
 
         # Begin testing
         test_epoch_loss = 0
-        test_prediction = np.empty([len(pedestrian_data.test_df), 2, config.OUTPUT_SEQ_LENGTH])
-        test_prediction = np.empty([int(len(pedestrian_data.test_df) / batch_size) * batch_size, 2, config.OUTPUT_SEQ_LENGTH])
+        test_prediction = np.empty([pedestrian_data.test_df_len, 2, config.OUTPUT_SEQ_LENGTH])
+        test_prediction = np.empty([int(pedestrian_data.test_df_len / batch_size) * batch_size, 2, config.OUTPUT_SEQ_LENGTH])
         y_batch_list = []
         x_batch_list = []
-        for batch in range(int(len(pedestrian_data.test_df) / batch_size)):
+        for batch in range(int(pedestrian_data.test_df_len / batch_size)):
             # x_batch, y_batch = data_utils.next_batch(batch, batch_size, testing_X, testing_Y)
             x_batch, y_batch = pedestrian_data.next_batch(mode='test', batch_num=batch,
                                                           batch_size=batch_size)
@@ -174,10 +175,10 @@ def train_neural_network(inputs):
             test_prediction[batch*batch_size : (batch+1)*batch_size, :] = pre
         testing_Y = np.concatenate(y_batch_list, axis=0)
         testing_X = np.concatenate(x_batch_list, axis=0)
-        test_epoch_loss = test_epoch_loss/(int(len(pedestrian_data.test_df)/batch_size)*batch_size)
+        test_epoch_loss = test_epoch_loss/(int(pedestrian_data.test_df_len/batch_size)*batch_size)
         
         print('Test loss:', test_epoch_loss)
-
+        
         # Save predicted data and ground truth data into a .csv file.
         testing_X = pedestrian_data.data_denormalise(
         	testing_X.reshape(-1, config.INPUT_SEQ_LENGTH * config.NUM_DIMENSIONS), 'x')
@@ -187,13 +188,16 @@ def train_neural_network(inputs):
         	test_prediction.reshape(-1, config.OUTPUT_SEQ_LENGTH * config.NUM_DIMENSIONS), 'y')
         test_all_data = np.hstack((testing_X, testing_Y, test_prediction))
         test_accuracy = mean_squared_error(testing_Y, test_prediction)
+
         print('Test accuracy', test_accuracy)
         print('Test accuracy another way', np.square(np.subtract(testing_Y, test_prediction)).mean())
+        test_accuracy = np.square(np.subtract(testing_Y, test_prediction)).sum(axis=1)
         print('row wise Test accuracy', np.square(np.subtract(testing_Y, test_prediction)).sum(axis=1))
-
+        pt_plot = np.argmin(test_accuracy)
         np.savetxt("GRU_test_prediction_and_real.csv", test_all_data, delimiter = ",")
 
-
+        visualise.show_pedestrian_path(testing_X[pt_plot], testing_Y[pt_plot], test_prediction[pt_plot])
+        # import ipdb; ipdb.set_trace()
 train_neural_network(inputs)
 
 

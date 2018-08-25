@@ -58,19 +58,32 @@ def read_files(file_count=1):
 			data in one file.
 	'''
 	data_folders = get_data_folders()
-	df_list = []
+	df_row_counts = []
 	problem_files = []
+	pickled_file_names = []
 	for index, data_folder in enumerate(data_folders):
 		if index >= file_count:
 			break
-		data_file_name = os.listdir(data_folder)[0]
+		for file_name in os.listdir(data_folder):
+			if file_name.startswith('.'):
+				continue
+			else:
+				data_file_name = file_name
+				break
 		data_file_path = os.path.join(data_folder, data_file_name)
 		try:
-			df_list.append(pd.read_csv(data_file_path, sep=';', header=None, error_bad_lines=False))
+			# df_list.append(pd.read_csv(data_file_path, sep=';', header=None, error_bad_lines=False))
+			df = pd.read_csv(data_file_path, sep=';', header=None, error_bad_lines=False)
+			processed_df_list = process_files([df])
+			processed_df = processed_df_list[0]
+			df_row_counts.append(len(processed_df))
+			pickled_file_name = 'pickled_dfs/df_' + str(index)
+			processed_df.to_pickle(pickled_file_name)
+			pickled_file_names.append(pickled_file_name)
 		except Exception:
 			print(data_file_name)
 			problem_files.append(data_file_name)
-	return df_list, problem_files
+	return pickled_file_names, df_row_counts, problem_files
 
 def process_files(df_list):
 	'''
@@ -200,30 +213,35 @@ class PedestrianData(object):
 	'''
 	'''
 	def __init__(self):
-		self.train_df_list, _ = read_files(file_count=config.NUM_FILES)
-		self.train_df_list = process_files(self.train_df_list)
-		self.row_counts = [len(df) for df in self.train_df_list]
-		self.total_row_count = sum(self.row_counts)
+		self.pickled_file_names, self.df_row_counts, _ = read_files(file_count=config.NUM_FILES)
+		# self.train_df_list = process_files(self.train_df_list)
+		# self.row_counts = [len(df) for df in self.df_row_counts]
+		self.total_row_count = sum(self.df_row_counts)
 		self.split_data()
 		print ("***************** Split")
 
 	def split_data(self):
 		'''
 		Splits the train_df_list into train_df_list, test_df and dev_df.
-		Train - test - dev split is 98 - 1 - 1.
+		Train - test - dev split is 99.8 - 0.1 - 0.1.
 
 		Instance variables test_df and dev_df are set here.
 		'''
-		df = self.train_df_list[-1]
+		pickled_file_name = self.pickled_file_names[-1]
+		df = pd.read_pickle(pickled_file_name)
 		test_sample_size = int(0.01 * self.total_row_count)
 		dev_sample_size = int(0.01 * self.total_row_count)
 		train_df, test_df = train_test_split(df, test_size=test_sample_size)
 		train_df, dev_df = train_test_split(train_df, test_size=dev_sample_size)
-		self.train_df_list[-1] = train_df
-		self.test_df = test_df
-		self.dev_df = dev_df
-		self.row_counts[-1] = len(train_df)
-		self.total_row_count = sum(self.row_counts)
+		train_df.to_pickle(pickled_file_name)
+		test_df.to_pickle('pickled_dfs/test_df')
+		dev_df.to_pickle('pickled_dfs/dev_df')
+		self.test_df_len = len(test_df)
+		self.dev_df_len = len(dev_df)
+		self.df_row_counts[-1] = len(train_df)
+		del([df, train_df, test_df, dev_df])
+		self.total_row_count = sum(self.df_row_counts)
+
 
 	def data_normalise(self, data, type):
 		if type == 'x':
@@ -246,8 +264,8 @@ class PedestrianData(object):
 		'''
 		'''
 		# print ("{} batch {}".format(mode, batch_num))
-		if batch_num == 157:
-			import ipdb; ipdb.set_trace()
+		# if batch_num == 157:
+		# 	import ipdb; ipdb.set_trace()
 		def _get_df_index_and_row(index):
 			'''Given an index of the row, returns which dataframe and what row in that dataframe
 			the given index appears in
@@ -271,14 +289,15 @@ class PedestrianData(object):
 			# if next_index/total_row_count:
 			# 	next_index = total_row_count - 1
 			next_index = next_index % self.total_row_count
-			cumulative_row_counts = np.array(self.row_counts).cumsum()
+			cumulative_row_counts = np.array(self.df_row_counts).cumsum()
 			current_df_index, current_index_df_row = _get_df_index_and_row(current_index)
-			current_index_df = self.train_df_list[current_df_index]
+			# current_index_df = self.train_df_list[current_df_index]
+			current_index_df = pd.read_pickle(self.pickled_file_names[current_df_index])
 			next_df_index, next_index_df_row = _get_df_index_and_row(next_index)
-			next_index_df = self.train_df_list[next_df_index]
 			if (current_df_index == next_df_index) and (current_index_df_row < next_index_df_row):
 				next_batch = current_index_df.iloc[current_index_df_row:next_index_df_row].copy()
-			else:
+			if current_df_index != next_df_index:
+				next_index_df = pd.read_pickle(self.pickled_file_names[next_df_index])
 				next_batch = pd.concat([current_index_df.iloc[current_index_df_row:],
 										next_index_df.iloc[:next_index_df_row]])
 			# print('current df index is {}, number of rows is {}'.format(current_df_index, self.row_counts[current_df_index]))
@@ -286,17 +305,19 @@ class PedestrianData(object):
 			# print('next df row index is {}'.format(next_index_df_row))
 		else:
 			mode_df_dict = {
-				'test': self.test_df,
-				'dev': self.dev_df
+				'test': pd.read_pickle('pickled_dfs/test_df'),
+				'dev': pd.read_pickle('pickled_dfs/dev_df')
 			}
 			df = mode_df_dict[mode]
 			next_batch = df[current_index: next_index]
-		X = np.array(next_batch.iloc[:, 1:((config.INPUT_SEQ_LENGTH * config.NUM_DIMENSIONS) + 1)])
+		try:
+			X = np.array(next_batch.iloc[:, 1:((config.INPUT_SEQ_LENGTH * config.NUM_DIMENSIONS) + 1)])
+		except UnboundLocalError:
+			import ipdb; ipdb.set_trace()
 		Y = np.array(next_batch.iloc[:, - (config.OUTPUT_SEQ_LENGTH * config.NUM_DIMENSIONS):])
 
 		X = X.reshape(-1, config.INPUT_SEQ_LENGTH, config.NUM_DIMENSIONS)
 		X = X.transpose([0, 2, 1])
-		print('Batch_num', batch_num)
 		X = self.data_normalise(X.reshape((-1, config.INPUT_SEQ_LENGTH * config.NUM_DIMENSIONS)), 'x')
 		X = X.reshape(-1, config.NUM_DIMENSIONS, config.INPUT_SEQ_LENGTH)
 
