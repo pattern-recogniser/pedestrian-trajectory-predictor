@@ -82,16 +82,20 @@ def train_neural_network(inputs):
     # print('prediction', prediction.shape)
     # print('target shape', targets.shape)
     # print('shape of result of tf.reduce_sum(prediction - targets, 0)', tf.reduce_sum(prediction - targets, 0).shape)
-
-    cost = tf.reduce_sum(tf.square(tf.norm(prediction - targets, ord='euclidean', axis=1)))
-    # The cost looks like it's the mean squared error, ie. sum of squared errors
+    with tf.name_scope('loss'):
+    	cost = tf.reduce_sum(tf.square(tf.norm(prediction - targets, ord='euclidean', axis=1)))
+    # The cost sum of squared errors
     #cost = tf.square(tf.norm(tf.reduce_sum(prediction - targets, 0)))      # prediction: (len,2)
-    optimizer = tf.train.AdamOptimizer(learning_rate).minimize(cost)
+    with tf.name_scope('train'):
+    	optimizer = tf.train.AdamOptimizer(learning_rate).minimize(cost)
 
     
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-
+        writer = tf.summary.FileWriter('tb_viz/3/')
+        writer.add_graph(sess.graph)
+        graph_def = sess.graph.as_graph_def(add_shapes=True)
+        print(graph_def)
         train_epoch_loss = 1.0
         prev_train_loss = 0.0
         epoch = 0
@@ -201,6 +205,7 @@ def train_neural_network(inputs):
         pt_plot = np.argmax(test_accuracy)
         visualise.show_pedestrian_path(testing_X[pt_plot], testing_Y[pt_plot],
         	test_prediction[pt_plot], 'Predicted trajectory with low accuracy')
+
 
         # import ipdb; ipdb.set_trace()
 train_neural_network(inputs)
