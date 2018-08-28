@@ -196,7 +196,7 @@ def train_neural_network(inputs):
         print('Test accuracy', test_accuracy)
         print('Test accuracy another way', np.square(np.subtract(testing_Y, test_prediction)).mean())
         test_accuracy = np.square(np.subtract(testing_Y, test_prediction)).sum(axis=1)
-        print('row wise Test accuracy', np.square(np.subtract(testing_Y, test_prediction)).sum(axis=1))
+        # print('row wise Test accuracy', np.square(np.subtract(testing_Y, test_prediction)).sum(axis=1))
         
         np.savetxt("GRU_test_prediction_and_real.csv", test_all_data, delimiter = ",")
         pt_plot = np.argmin(test_accuracy)
